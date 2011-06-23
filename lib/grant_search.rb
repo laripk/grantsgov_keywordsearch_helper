@@ -17,23 +17,26 @@ class GrantSearch
       # get first page
       url =  "http://www.grants.gov/search/search.do?text=#{u(keywords)}&topagency=*&agency=*&eligible=*&fundInstrum=*&mode=Search&docs1=doc_open_checked#{opps==:all ? '&docs2=doc_close_checked&docs3=doc_archived_checked' : ''}&fundActivity=*&dates=*"
       page = 1
-      filename = "#{page}.html"
-      file = Download.get url, File.join(@search_dir, filename)
-      doc = Nokogiri::HTML(file)
+      file = get_page(url, page)
+      doc = Nokogiri::HTML(File.read(file.path))
       # parse table into storage
       # get nextpage info
-      nextpagelink = get_nextpage(doc)
+      next_page_link = get_next_page(doc)
+   puts next_page_link
       # loop remaining pages
-      while nextpagelink
+      while next_page_link
          page += 1
          if verbose && page % 10 == 0
             print page, " "
          end
          sleep SleepLength
          # download page
-         
+         file = get_page(next_page_link, page)
+         doc = Nokogiri::HTML(File.read(file.path))
          # parse table into storage
          # get nextpage info
+         next_page_link = get_next_page(doc)
+   puts next_page_link
       end
       # dump storage into csv
       # clean up temp files, or not
@@ -49,9 +52,13 @@ private
       Dir.mkdir @search_dir
    end
    
-   def get_nextpage(doc)
+   def get_next_page(doc)
       links = doc.css('table tr td table tr td p a')
-      nextlink = links.find{|node| node.children[0].text == 'Next'}
+   puts doc.class, links.length
+      nextlink = links.find do |node| 
+         txt = node.children[0]
+         txt.text == 'Next' if txt
+      end
       if nextlink
          "http://www.grants.gov#{nextlink['href']}"
       else
@@ -59,8 +66,9 @@ private
       end
    end
 
-   def get_page(url, page, filename)
-      
+   def get_page(url, page)
+      filename = "#{page}.html"
+      file = Download.get url, File.join(@search_dir, filename)      
    end
 
 end
@@ -69,9 +77,9 @@ end
 
 require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
 gg = GrantSearch.new
-gg.search "food", :all, "test1", true
+gg.search "food", :open, "test3", true
 
-doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/tes1/1.html'){|file| Nokogiri::HTML(file)}
+doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test2/1.html'){|file| Nokogiri::HTML(file)}
 
 
 =end
