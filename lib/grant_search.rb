@@ -22,11 +22,9 @@ class GrantSearch
       doc = Nokogiri::HTML(file)
       # parse table into storage
       # get nextpage info
-      pagelinks = doc.css('html body table tbody tr td table tbody tr td p a')
-   puts pagelinks.inspect
-      nextpagelink = pagelinks.last.href
+      nextpagelink = get_nextpage(doc)
       # loop remaining pages
-      while !nextpagelink.empty?
+      while nextpagelink
          page += 1
          if verbose && page % 10 == 0
             print page, " "
@@ -50,6 +48,16 @@ private
       end
       Dir.mkdir @search_dir
    end
+   
+   def get_nextpage(doc)
+      links = doc.css('table tr td table tr td p a')
+      nextlink = links.find{|node| node.children[0].text == 'Next'}
+      if nextlink
+         "http://www.grants.gov#{nextlink['href']}"
+      else
+         nil
+      end
+   end
 
    def get_page(url, page, filename)
       
@@ -58,7 +66,13 @@ private
 end
 
 =begin
+
+require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
 gg = GrantSearch.new
 gg.search "food", :all, "test1", true
+
+doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/tes1/1.html'){|file| Nokogiri::HTML(file)}
+
+
 =end
 
