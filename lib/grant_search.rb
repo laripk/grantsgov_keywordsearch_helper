@@ -1,13 +1,11 @@
 require 'nokogiri'
 require 'erb'
-# require 'active_support'
 require 'active_support/core_ext/string'
-# require 'active_support/multibyte'
+require 'csv'
 require File.expand_path(File.dirname(__FILE__) + '/download')
 
 class GrantSearch
    include ERB::Util
-   # include ActiveSupport::Inflector
    
    SleepLength = 2
    DataRootDir = File.expand_path(File.dirname(__FILE__) + "/../data")
@@ -20,10 +18,14 @@ class GrantSearch
    ColAttach = 4
    
    
-   def search(keywords, opps, search_id, verbose = false)
+   def search(keywords, opps, search_id, verbose = true)
       # init search
-      STDOUT.sync = true if verbose
+      if verbose
+         STDOUT.sync = true
+         print 'Download progress (pages): '
+      end
       prep_dir search_id
+      save_search_options keywords, opps
       init_results
 
       # get first page
@@ -35,21 +37,37 @@ class GrantSearch
       next_page_link = get_next_page(doc)
       while next_page_link
          page += 1
-         if verbose && page % 5 == 0
-            print page, " "
+         if verbose && page % 2 == 0
+            print page, ' '
          end
          sleep SleepLength
          doc = get_page(next_page_link, page)
          parse_table doc
          next_page_link = get_next_page(doc)
       end
+      if verbose
+         puts ''
+      end
       # dump storage into csv
-   puts @results.length
-      # clean up temp files, or not
+      output_results
+      # clean up temp files, or not - not
+      @results.length
    end
 
 # private
 attr_reader :results
+
+   def save_search_options(keywords, opps)
+      open(File.join(@search_dir, 'search_options.txt'), 'wt:UTF-8') do |file|
+         file << "Keywords:\n\t#{keywords}\n"
+         file << "Which Opportunities:\n\t"
+         if opps == :all
+            file << "All\n"
+         else
+            file << "Open\n"
+         end
+      end
+   end
 
    def init_results
       @results = []
@@ -83,11 +101,8 @@ attr_reader :results
    end
 
    def clean_text(str)
-puts "in", str
       str = str.force_encoding("Windows-1252")
-puts str
       s = strip_garbage_win_chars(str)
-puts s
       str = s.force_encoding("Windows-1252").encode("UTF-8")
       s = strip_annoying_unicode(str)
       s = ActiveSupport::Inflector.transliterate(s)
@@ -98,7 +113,6 @@ puts s
       raise "strip_garbage_win_chars requires a Windows-1252 string, not #{str.encoding}" unless str.encoding.to_s == "Windows-1252"
       s = ''
       str.each_byte do |c|
-   print ' ', c
          case c
          when 0x81, 0x8D, 0x8F, 0x90, 0x9D
             # garbage character that cannot be translated to UTF-8
@@ -120,13 +134,30 @@ puts s
          when 194
             # the re-encoding is not bundling this prefix code with its suffix properly, 
             # so just drop it
-            # (I doubt there are many A-circumflexes in the database)
-         when 0x201C..0x201F # because curly quotes annoy me
-            s << '"'
-         when 0x2018..0x201B # because curly quotes annoy me
+         when 0x02C6
+            s << '^'
+         when 0x02DC
+            s << '~'
+         when 0x2002..0x200B
+            s << ' '
+         when 0x2010..0x2014
+            s << '-'
+         when 0x2018..0x201B, 0x2039..0x203A
             s << "'"
+         when 0x201C..0x201F 
+            s << '"'
+         when 0x2020..0x2022
+            s << '*'
+         when 0x2026
+            s << '...'
+         when 0x2030
+            s << '0/00' # per mille sign
+         when 0x20AC
+            s << 'Euro'
+         when 0x2122
+            s << 'TM'
          else
-            warn "character #{c} not translated" if c > 127
+            warn "character #{c} not translated" if c > 255
             s << c
          end
       end
@@ -170,17 +201,41 @@ puts s
       result_row[:opp_link] = "#{LinkRoot}#{link}"
       result_row[:opp_id] = /\boppId=(\d+)\b/.match(link)[1]
    
-   puts result_row.inspect
       result_row
    end
 
+   def output_results
+      open(File.join(@search_dir, 'results.csv'), 'wt:UTF-8') do |file|
+         file << csv_results_header
+         @results.each do |row|
+            file << csv_result_row(row)
+         end
+      end
+   end
+   
+   def csv_results_header
+      "Open Date,Opportunity Id,Opportunity Title,Opportunity Link,Agency,Funding Number,Attachments\n"
+   end
+   
+   def csv_result_row(row)
+      r = []
+      r << row[:date]
+      r << row[:opp_id]
+      r << row[:title]
+      r << "#{row[:opp_link]} "
+      r << row[:agency]
+      r << row[:fund_num]
+      r << row[:attachments].map{|att| "#{att[:descrip]} #{att[:link]} " }.join('|')
+      r.to_csv
+   end
+   
 end
 
 =begin
 
 require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
 gg = GrantSearch.new
-gg.search "food borne illness", :open, "test6", true
+gg.search "food", :all, "test14", true
 
 
 
@@ -213,6 +268,14 @@ gg.results[7] # curly quote
 
 gg.results[6] # multiple attachments, one with curly quote
 
+
+require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
+
+doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test13/19.html'){|file| Nokogiri::HTML(file)}
+
+gg = GrantSearch.new
+gg.init_results
+gg.parse_table doc
 
 
 
