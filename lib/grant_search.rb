@@ -1,7 +1,7 @@
 require 'nokogiri'
 require 'erb'
 # require 'active_support'
-# require 'active_support/core_ext/string'
+require 'active_support/core_ext/string'
 # require 'active_support/multibyte'
 require File.expand_path(File.dirname(__FILE__) + '/download')
 
@@ -82,9 +82,36 @@ attr_reader :results
       doc = Nokogiri::HTML(File.read(file.path))
    end
 
-   # NBSP = [160, 194] # 160
    def clean_text(str)
-      str = str.force_encoding("Windows-1252").encode("UTF-8")
+puts "in", str
+      str = str.force_encoding("Windows-1252")
+puts str
+      s = strip_garbage_win_chars(str)
+puts s
+      str = s.force_encoding("Windows-1252").encode("UTF-8")
+      s = strip_annoying_unicode(str)
+      s = ActiveSupport::Inflector.transliterate(s)
+      s.strip
+   end
+   
+   def strip_garbage_win_chars(str)
+      raise "strip_garbage_win_chars requires a Windows-1252 string, not #{str.encoding}" unless str.encoding.to_s == "Windows-1252"
+      s = ''
+      str.each_byte do |c|
+   print ' ', c
+         case c
+         when 0x81, 0x8D, 0x8F, 0x90, 0x9D
+            # garbage character that cannot be translated to UTF-8
+            # drop it
+         else
+            s << c
+         end
+      end
+      s
+   end
+   
+   def strip_annoying_unicode(str)
+      raise "strip_annoying_unicode requires a UTF-8 string, not #{str.encoding}" unless str.encoding.to_s == "UTF-8"
       s = ''
       str.codepoints do |c|   # ActiveSupport::Multibyte::Unicode.g_unpack(str).each
          case c
@@ -103,8 +130,7 @@ attr_reader :results
             s << c
          end
       end
-      # s = ActiveSupport::Inflector.transliterate(str)
-      s.strip
+      s
    end
 
    def parse_table(doc)
@@ -122,13 +148,19 @@ attr_reader :results
       result_row[:agency] = clean_text(row[ColAgency].text)
       result_row[:fund_num] = clean_text(row[ColFundNum].text)
       
-      att = row[ColAttach].css('a')[0] # oops, can have multiple attachments
-      if att
-         result_row[:attach_descrip] = clean_text(att.text)
-         result_row[:attach_link] = "#{LinkRoot}#{att['href']}"
+      atts = row[ColAttach].css('a')
+      if atts.length > 0
+         result_row[:attachments] = atts.map do |att|
+            a = {}
+            a[:descrip] = clean_text(att.text)
+            if a[:descrip] == ''
+               a[:descrip] = 'Unnamed Attachment'
+            end
+            a[:link] = "#{LinkRoot}#{att['href']}"
+            a
+         end
       else
-         result_row[:attach_descrip] = ''
-         result_row[:attach_link] = ''
+         result_row[:attachments] = []
       end
       
       title = row[ColTitle].css('a')[0]
@@ -148,7 +180,7 @@ end
 
 require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
 gg = GrantSearch.new
-gg.search "food", :open, "test5", true
+gg.search "food borne illness", :open, "test6", true
 
 
 
@@ -157,14 +189,32 @@ require 'nokogiri'
 
 require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
 
-doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test5/5.html'){|file| Nokogiri::HTML(file)}
+doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test6/8.html'){|file| Nokogiri::HTML(file)}
 doc.class
 
 gg = GrantSearch.new
 gg.init_results
 gg.parse_table doc
 
-gg.results[7]
+
+gg.results[1] # garbage chars (binary attach interpreted as plain text)
+
+gg.results[6] # multiple attachments
+
+gg.results[9] # no attachments
+
+
+doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test5/5.html'){|file| Nokogiri::HTML(file)}
+
+gg.init_results
+gg.parse_table doc
+
+gg.results[7] # curly quote
+
+gg.results[6] # multiple attachments, one with curly quote
+
+
+
 
 nb = "-\xC2\xA0-"
 
