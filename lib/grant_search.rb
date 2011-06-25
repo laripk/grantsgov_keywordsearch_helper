@@ -66,6 +66,7 @@ attr_reader :results
          else
             file << "Open\n"
          end
+         file.chmod 0o444
       end
    end
 
@@ -210,6 +211,7 @@ attr_reader :results
          @results.each do |row|
             file << csv_result_row(row)
          end
+         file.chmod 0o444
       end
    end
    
@@ -235,6 +237,9 @@ end
 
 require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
 gg = GrantSearch.new
+gg.search "food safety", :all, "test15", true
+
+
 gg.search "food", :all, "test14", true
 
 

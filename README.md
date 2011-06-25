@@ -20,7 +20,10 @@ It will ask for ...
 
 In the search folder, it will store all the HTML pages of the search results (eg, `1.html`, `2.html`, ...), 
 a file called `search_options.txt` containing your search parameters, 
-and it will store the compiled results as `results.csv`.
+and the compiled results as `results.csv`. 
+All of these files are marked read-only to prevent you from accidentally making changes 
+to your reference copies. When you import the csv data, you will be creating a new file 
+in the format of your spreadsheet or database, after all.
 
 Note when importing the `results.csv` into your favorite spreadsheet or database program 
 that there may be multiple entries in the `attachments` column, which is the last column. 

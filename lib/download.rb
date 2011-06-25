@@ -12,6 +12,8 @@ class Download
          )
          @@cookie = pg.meta['set-cookie'] || @@cookie
          f << pg.read
+         f.chmod 0o444
+         f
       end
    end
 end
