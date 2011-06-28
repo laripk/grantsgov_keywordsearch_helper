@@ -2,13 +2,96 @@ require 'nokogiri'
 require 'erb'
 require 'active_support/core_ext/string'
 require 'csv'
-require File.expand_path(File.dirname(__FILE__) + '/download')
+require 'open-uri'
+
+
+class App
+   VERSION = '0.1.0'
+   COPYRIGHT = '2011 by Lari P. Kirby'
+   
+   def run
+      display_intro
+      running_count = 0
+      return running_count unless do_again?(true)
+      @gs = GrantSearch.new
+      begin
+         search_folder = get_search_folder
+         opps = get_which_opps
+         keywords = get_keywords
+         count = @gs.search(keywords, opps, search_folder)
+         puts "\nFound #{count} records."
+         running_count += count
+      end while do_again?
+      running_count
+   end
+   
+protected
+
+   def do_again?(first_time = false)
+      prompt = "\Do you want to run a#{first_time ? '' : 'nother'} search? (Yes/[No])"
+      answer = ask(prompt) 
+      %w(Y y T t).include?(answer[0])
+   end
+   
+   def display_intro
+      msg = <<-USAGE
+      This is grantsgov_keywordsearch_helper version #{VERSION},
+      copyright #{COPYRIGHT}.
+       
+      It is a tool that will run a keyword search on the grants.gov site,
+      save all pages of the results, and compile the results into a CSV file
+      ready to be imported into your favorite spreadsheet or database program.
+      USAGE
+      puts msg
+   end
+   
+   def get_search_folder
+      banner = <<-HERE
+      
+      Please enter a name for this search. This will be used as a directory name 
+      in the data folder where this script resides, and all your search results
+      will be saved here. It needs to not already exist.
+      HERE
+      prompt = "search folder name>"
+      puts banner
+      begin
+         answer = ask(prompt)
+         ans_ok = @gs.dir_ok?(answer)
+         if !ans_ok
+            puts "'#{answer}' is not available as a new search folder name. Please try again."
+         end
+      end until ans_ok 
+      answer
+   end
+   
+   def get_which_opps
+      prompt = "Do you want to search All or only Open opportunities? (All/[Open])"
+      answer = ask(prompt)
+      which_opps = if %w(A a).include?(answer[0])
+         :all
+      else
+         :open
+      end
+   end
+   
+   def get_keywords
+      prompt = "What keywords do you want to search?"
+      answer = ask(prompt)
+   end
+   
+   def ask(prompt)
+      print "\n#{prompt} "
+      answer = gets
+      answer.strip
+   end
+end
+
 
 class GrantSearch
    include ERB::Util
    
    SleepLength = 2
-   DataRootDir = File.expand_path(File.dirname(__FILE__) + "/../data")
+   DataRootDir = File.expand_path(File.dirname(__FILE__) + "/data")
    LinkRoot = 'http://www.grants.gov'
    
    ColDate = 0
@@ -16,13 +99,14 @@ class GrantSearch
    ColAgency = 2
    ColFundNum = 3
    ColAttach = 4
+   RecordsPerPage = 20
    
    
    def search(keywords, opps, search_folder, verbose = true)
       # init search
       if verbose
          STDOUT.sync = true
-         print 'Download progress (pages): '
+         print "\nDownload progress (even pages)... "
       end
       prep_dir search_folder
       save_search_options keywords, opps
@@ -34,6 +118,10 @@ class GrantSearch
       doc = get_page(url, page)
 
       parse_table doc
+      expected_record_count, expected_page_count = get_count(doc)
+      if verbose && expected_page_count > 1
+         print "(expecting #{expected_page_count} pages) "
+      end
       next_page_link = get_next_page(doc)
       while next_page_link
          page += 1
@@ -46,12 +134,16 @@ class GrantSearch
          next_page_link = get_next_page(doc)
       end
       if verbose
-         puts ''
+         puts 'finishing up...'
       end
       # dump storage into csv
       output_results
-      # clean up temp files, or not - not
       @results.length
+   end
+
+   def dir_ok?(search_folder)
+      @search_dir = File.join(DataRootDir, search_folder)
+      !Dir.exists?(@search_dir)
    end
 
 private
@@ -75,8 +167,7 @@ private
    end
 
    def prep_dir(search_folder)
-      @search_dir = File.join(DataRootDir, search_folder)
-      if Dir.exists?(@search_dir)
+      unless dir_ok?(search_folder)
          raise "search_folder '#{search_folder}' is already in use"
       end
       Dir.mkdir(DataRootDir) unless Dir.exists?(DataRootDir)
@@ -93,6 +184,19 @@ private
          "#{LinkRoot}#{nextlink['href']}"
       else
          nil
+      end
+   end
+
+   def get_count(doc)
+      count_area = doc.css('tr:nth-child(3) p')
+      if count_area && count_area.length == 2
+         count_para = count_area[1].text.split(' ')
+         record_count = count_para[-1].to_i
+         page_count = record_count / RecordsPerPage + 
+                     (record_count % RecordsPerPage > 0 ? 1 : 0)
+         [record_count, page_count]
+      else
+         [0, 1]
       end
    end
 
@@ -159,18 +263,21 @@ private
          when 0x2122
             s << 'TM'
          else
-            warn "character #{c} not translated" if c > 255
-            s << c
+            # warn "character #{c} not translated" if c > 255
+            s << c.chr(Encoding::UTF_8)
          end
       end
       s
    end
 
    def parse_table(doc)
-      rows = doc.css('table:nth-child(2)')[0].css('tr')
-      (1..(rows.length-1)).each do |i|
-         row = rows[i].css('td')
-         @results << parse_row(row)
+      table = doc.css('table:nth-child(2)')[0]
+      if table
+         rows = table.css('tr')
+         (1..(rows.length-1)).each do |i|
+            row = rows[i].css('td')
+            @results << parse_row(row)
+         end
       end
    end
    
@@ -234,62 +341,27 @@ private
    
 end
 
-=begin
 
-require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
-gg = GrantSearch.new
-gg.search "food safety", :all, "test15", true
-
-
-gg.search "food", :all, "test14", true
-
-
-
-require 'nokogiri'
-
-
-require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
-
-doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test6/8.html'){|file| Nokogiri::HTML(file)}
-doc.class
-
-gg = GrantSearch.new
-gg.init_results
-gg.parse_table doc
+class Download
+   @@cookie = '' # this minimal cookie-store assumes we're only ever visiting one site
+   
+   def self.get(url, filename)
+      open(filename, 'wb') do |f|
+         pg = open(url, 
+            :read_timeout => 300,
+            'Cookie' => @@cookie,
+            'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_5_8) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.20 Safari/535.1'
+         )
+         @@cookie = pg.meta['set-cookie'] || @@cookie
+         f << pg.read
+         f.chmod 0o444
+         f
+      end
+   end
+end
 
 
-gg.results[1] # garbage chars (binary attach interpreted as plain text)
-
-gg.results[6] # multiple attachments
-
-gg.results[9] # no attachments
-
-
-doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test5/5.html'){|file| Nokogiri::HTML(file)}
-
-gg.init_results
-gg.parse_table doc
-
-gg.results[7] # curly quote
-
-gg.results[6] # multiple attachments, one with curly quote
-
-
-require '~/Projects/grantsgov_keywordsearch_helper/lib/grant_search'
-
-doc = File.open('/Users/laripk/Projects/grantsgov_keywordsearch_helper/data/test13/19.html'){|file| Nokogiri::HTML(file)}
-
-gg = GrantSearch.new
-gg.init_results
-gg.parse_table doc
-
-
-
-nb = "-\xC2\xA0-"
-
-
-=end
-
-
-
+app = App.new
+total = app.run
+puts "A grand total of #{total} records found during this session."
 
