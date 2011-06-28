@@ -18,13 +18,13 @@ class GrantSearch
    ColAttach = 4
    
    
-   def search(keywords, opps, search_id, verbose = true)
+   def search(keywords, opps, search_folder, verbose = true)
       # init search
       if verbose
          STDOUT.sync = true
          print 'Download progress (pages): '
       end
-      prep_dir search_id
+      prep_dir search_folder
       save_search_options keywords, opps
       init_results
 
@@ -54,8 +54,8 @@ class GrantSearch
       @results.length
    end
 
-# private
-attr_reader :results
+private
+# attr_reader :results
 
    def save_search_options(keywords, opps)
       open(File.join(@search_dir, 'search_options.txt'), 'wt:UTF-8') do |file|
@@ -74,11 +74,12 @@ attr_reader :results
       @results = []
    end
 
-   def prep_dir(search_id)
-      @search_dir = File.join(DataRootDir, search_id)
+   def prep_dir(search_folder)
+      @search_dir = File.join(DataRootDir, search_folder)
       if Dir.exists?(@search_dir)
-         raise "search_id '#{search_id}' is already in use"
+         raise "search_folder '#{search_folder}' is already in use"
       end
+      Dir.mkdir(DataRootDir) unless Dir.exists?(DataRootDir)
       Dir.mkdir @search_dir
    end
    
