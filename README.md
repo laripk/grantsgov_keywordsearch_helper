@@ -13,8 +13,11 @@ Installation
 1. Install Ruby, if you don't have it already. This tool was developed on Ruby 1.9.2.
 
   - Windows: 
+  
     1. Use the RubyInstaller: http://rubyinstaller.org/downloads/
+
     2. Choose the 1.9.x installer, currently 1.9.2-p180.
+
     3. Run the installer, turning ON the check boxes to have the installer add ruby to your path and to associate the files with ruby.
 
   - Additional Ruby Install Options, including Mac & Linux: http://www.ruby-lang.org/en/downloads/
