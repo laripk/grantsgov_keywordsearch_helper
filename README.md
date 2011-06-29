@@ -46,7 +46,7 @@ You run this tool by going to your command line,
 switching to the directory where you put the script (use `cd <directory_name>`), 
 and entering `ruby grant_search.rb` at the command prompt.
 
-It will ask for the name of a folder in which to save the search results, 
+For each search, it will ask for the name of a folder in which to save the search results, 
 whether you want to search against all or only open grant opportunities, 
 and what keywords you want to search with. 
 
