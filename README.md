@@ -12,27 +12,38 @@ Installation
 
 1. Install Ruby, if you don't have it already. This tool was developed on Ruby 1.9.2.
 
-  - Windows: Use the RubyInstaller: http://rubyinstaller.org/downloads/ Choose the 1.9.x installer, currently 1.9.2-p180. Run the installer, turn ON the check boxes to have the installer add ruby to your path and to associate the files with ruby.
+  - Windows: 
+    - Use the RubyInstaller: http://rubyinstaller.org/downloads/
+    - Choose the 1.9.x installer, currently 1.9.2-p180.
+    - Run the installer, turning ON the check boxes to have the installer add ruby to your path and to associate the files with ruby.
 
-  - Additional Ruby Install Options: http://www.ruby-lang.org/en/downloads/
+  - Additional Ruby Install Options, including Mac & Linux: http://www.ruby-lang.org/en/downloads/
   
   - Type `ruby --version` at the command line to verify that it has installed.
 
 2. Download this project: 
 
-  - Go to https://github.com/laripk/grantsgov_keywordsearch_helper 
+  - Go to https://github.com/laripk/grantsgov_keywordsearch_helper
   
   - Click the big Downloads button on the right and choose the appropriate compressed source bundle for your operating system. (Or use git, but if you thought of that you probably know how to do it.)
   
-  - Unzip the download into a folder of your choosing.
+  - Unzip the download into a folder of your choosing - make it something easy to type.
   
-3. You should now be able to go to the command line, switch to the folder where you put the source, type `ruby grant_search.rb` and see the introductory text from the program.
+3. Install the libraries:
+
+  - Go to the command line (on Windows, that's Start -> Run -> type: `cmd` -> click OK)
+
+  - Switch to the folder where you put the source (on Windows: use `dir` to see where you are and `cd <directory>` to change directories - you will need to wrap the directory name in `"` (quotation marks) if there are any spaces in it.)
+
+  - Type `gem install bundler` at the command line (hit Enter, wait for it to finish), followed by `bundle install`. This second command will take a bit longer than the first.
+
+4. Still at the command line in the source folder, type `ruby grant_search.rb` and see the introductory text from the program. (Type `No` or just hit Enter if you don't want to run a search yet.)
 
 Notes on Usage
 --------------
 
 You run this tool by going to your command line, 
-switching to the directory where you put the script, 
+switching to the directory where you put the script (use `cd <directory_name>`), 
 and entering `ruby grant_search.rb` at the command prompt.
 
 It will ask for the name of a folder in which to save the search results, 
