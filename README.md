@@ -25,7 +25,7 @@ Installation
 
   - Go to https://github.com/laripk/grantsgov_keywordsearch_helper
   
-  - Click the big Downloads button on the right and choose the appropriate compressed source bundle for your operating system. (Or use git, but if you thought of that you probably know how to do it.)
+  - Click the big Downloads button on the right and choose the latest package (or the source zip). (Or use git, but if you thought of that you probably know how to do it.)
   
   - Unzip the download into a folder of your choosing - make it something easy to type.
   
